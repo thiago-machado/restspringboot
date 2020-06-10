@@ -1,12 +1,27 @@
 package br.com.totustuus.model;
 
+import java.util.Collection;
+import java.util.List;
+
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.ManyToMany;
 
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+/**
+ * UserDetails é a interface para dizer que essa é a classe que tem detalhes de
+ * um usuário.
+ * 
+ * Vamos precisar implementar alguns métodos (consultar abaixo).
+ * 
+ */
 @Entity
-public class Usuario {
+public class Usuario implements UserDetails {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -14,6 +29,22 @@ public class Usuario {
 	private String nome;
 	private String email;
 	private String senha;
+
+	/*
+	 * Para o Spring security, além de ter uma classe usuário, precisa ter uma
+	 * classe também que representa o perfil do usuário. Qual o perfil relacionado
+	 * com as permissões de acesso dele.
+	 * 
+	 * Um usuário pode ter mais de um perfil e o mesmo perfil pode estar atrelado a
+	 * mais de um usuário.
+	 * 
+	 * Por padrão, na JPA, todo relacionamento que é ManyToMany, se eu carregar do
+	 * banco de dados, ele não carrega a lista, porque é lazy, só que eu vou colocar
+	 * o fetch para ser Eager, porque quando eu carregar o usuário já carrego a
+	 * lista de perfis, porque vou precisar dos perfis de acesso do usuário.
+	 */
+	@ManyToMany(fetch = FetchType.EAGER)
+	private List<Perfil> perfis;
 
 	@Override
 	public int hashCode() {
@@ -70,6 +101,44 @@ public class Usuario {
 
 	public void setSenha(String senha) {
 		this.senha = senha;
+	}
+
+	// MÉTODOS HERDADOS DE UserDetails
+
+	@Override
+	public Collection<? extends GrantedAuthority> getAuthorities() {
+		return perfis;
+	}
+
+	@Override
+	public String getPassword() {
+		return senha;
+	}
+
+	@Override
+	public String getUsername() {
+		return email;
+	}
+
+	// Esses outros métodos não vamos usar, por isso, retornamos true em tudo
+	@Override
+	public boolean isAccountNonExpired() {
+		return true;
+	}
+
+	@Override
+	public boolean isAccountNonLocked() {
+		return true;
+	}
+
+	@Override
+	public boolean isCredentialsNonExpired() {
+		return true;
+	}
+
+	@Override
+	public boolean isEnabled() {
+		return true;
 	}
 
 }

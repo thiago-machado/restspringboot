@@ -2,6 +2,8 @@ package br.com.totustuus.repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -60,29 +62,7 @@ public interface TopicoRepository extends JpaRepository<Topico, Long> {
 	 */
 	List<Topico> findByCurso_Nome(String cursoNome);
 
-	/*
-	 * Às vezes você não gostou do nome de método acima. Não queria que o método
-	 * tivesse esse nome em inglês. Por exemplo, queria chamar meu método de
-	 * selecionarTopicosPeloNomeCurso. Se você criar um método com essa
-	 * nomenclatura, você não está mais seguindo o padrão, a convenção do
-	 * SpringData. Ele não vai conseguir gerar a query para você. Você não vai ter
-	 * mais a mágica dele gerar a query automaticamente para você. Só que você
-	 * consegue ensinar para ele.
-	 * 
-	 * Existe uma anotação que você coloca, o @Query.Nos parênteses, entre aspas,
-	 * você vai ter que montar a query na mão, usando o JPQL. Você teria que fazer
-	 * um SELECT t FROM topico t WHERE t.curso.nome = :nomeCurso.
-	 * 
-	 * A vantagem dessa segunda abordagem é que você coloca o nome do método que
-	 * você quiser, em português, no estilo que você quiser, só que a desvantagem é
-	 * que você vai ter que montar a query manualmente.
-	 * 
-	 * E mais: como eu tenho um parâmetro, o Spring não assume que esse parâmetro é
-	 * o que está no método. Precisa colocar mais uma anotação, que é o @Param.
-	 * 
-	 * 
-	 */
 	@Query("SELECT t FROM Topico t WHERE t.curso.nome = :cursoNome")
-	List<Topico> selecionarTopicosPeloNomeCurso(@Param("cursoNome") String cursoNome);
+	Page<Topico> selecionarTopicosPeloNomeCurso(@Param("cursoNome") String cursoNome, Pageable pageable);
 
 }

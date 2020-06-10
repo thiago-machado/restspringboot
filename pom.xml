@@ -35,6 +35,22 @@
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
 		
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+
+		<!-- Outra dependência que deveríamos colocar é de qual a ferramenta, o 
+			provedor de cache que quero utilizar para aplicação. Com a aplicação rodando 
+			em produção, o ideal é utilizar algum provedor de cache. O Spring suporte 
+			alguns provedores, mas para fins de desenvolvimento, não precisamos usar 
+			nenhum provedor. Se não declararmos um provedor, o Spring usa um padrão, 
+			que é onde ele guarda o cache em memória usando um REST map. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-cache</artifactId>
+		</dependency>
+
 		<!-- Banco de dados em memória -->
 		<dependency>
 			<groupId>com.h2database</groupId>

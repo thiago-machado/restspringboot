@@ -1,13 +1,19 @@
 package br.com.totustuus.controller;
 
 import java.net.URI;
-import java.util.List;
 import java.util.Optional;
 
 import javax.transaction.Transactional;
 import javax.validation.Valid;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort.Direction;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +22,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -52,102 +60,157 @@ public class TopicoController {
 	private CursoRepository cursoRepository;
 
 	/**
-	 * Da forma como estpa, vamos perceber que por padrão o Spring pega o retorno e
-	 * devolve ela em um formato JSON. Na verdade, não é o Spring que faz isso. O
-	 * Spring usa uma biblioteca chamada Jackson.
+	 * Agora é possível fazer paginação usando Pageable. Precisamos somente criar
+	 * uma instância do mesmo usando:
 	 * 
-	 * É o Jackson que faz a conversão de Java para JSON. O Spring usa o Jackson por
-	 * debaixo dos panos. Ele pegou a lista que foi devolvida, passou ela para o
-	 * Jackson, o Jackson converteu para JSON, e ele devolveu como uma string.
+	 * PageRequest.of(numeroDaPagina, quantidadeDeRegistros)
 	 * 
-	 * A anotação @GetMapping diz que esse método será chamado via GET. O mapeamento
-	 * está na classe.
+	 * O Spring é inteligente o suficiente para entender que ao passar esse
+	 * parâmetro aos nossos métodos, significa que queremos fazer paginação. Não
+	 * precisamos ferver a cabeça com lógica.
+	 * 
+	 * Podemos também fazer ordenação de registros utilizando mais dois parâmetros
+	 * em PageRequest: PageRequest.of(numeroDaPagina, quantidadeDeRegistros,
+	 * direcaoDaOrdenacao, campoParaOrdenacao)
+	 * 
+	 * Parâmetros "cursoNome" e "ordenacao" não são obrigatórios, mas "pagina" e
+	 * "quantidade" são!
+	 * 
+	 * O método findAll() aceita receber como parâmetro um Pageable. Contudo, o
+	 * retorno será um Page. Pois será enviado ao usuário um JSON com os registros e
+	 * com informações sobre número total de registros, número total de páginas e
+	 * etc.
+	 * 
 	 */
-	// Ex.: http://localhost:8080/topicos
-	// Ex.: http://localhost:8080/topicos?cursoNome=Spring+Boot
+	// http://localhost:8080/topicos?pagina=0&quantidade=1
 	@GetMapping
-	public List<TopicoResponseDTO> lista(String cursoNome) {
-		List<Topico> topicos = null;
+	public Page<TopicoResponseDTO> lista(@RequestParam(required = false, value = "cursoNome") String cursoNome,
+			@RequestParam("pagina") int pagina, @RequestParam("quantidade") int quantidade,
+			@RequestParam(required = false, value = "ordenacao") String ordenacao) {
+
+		Pageable pageable = null;
+
+		// Direction.ASC ordena de modo crescente os registros
+		if (ordenacao != null)
+			pageable = PageRequest.of(pagina, quantidade, Direction.ASC, ordenacao);
+		else
+			pageable = PageRequest.of(pagina, quantidade);
+
+		Page<Topico> topicos = null;
 
 		if (cursoNome == null)
-			topicos = topicoRepository.findAll();
+			topicos = topicoRepository.findAll(pageable);
 		else
-			// topicos = topicoRepository.findByCurso_Nome(cursoNome);
-			topicos = topicoRepository.selecionarTopicosPeloNomeCurso(cursoNome);
+			topicos = topicoRepository.selecionarTopicosPeloNomeCurso(cursoNome, pageable);
+
+		return TopicoResponseDTO.converter(topicos);
+	}
+
+	/**
+	 * Outra forma de usar uma requisição GET com paginação.
+	 * 
+	 * Existe uma forma mais simples no Spring, onde recebemos um objeto de Pageable
+	 * no método.
+	 * 
+	 * Através desse parâmetro podemos definir alguns valores padrões através da
+	 * anotação @PageableDefault. Com essa anotação, podemos definir o campo de
+	 * ordenação padrão, a direção, número da página e quantidade de itens por
+	 * página.
+	 * 
+	 * 
+	 * IMPORTANTE: Para o Spring conseguir pegar os parâmetros de paginação e
+	 * ordenação da requisição, ele precisa que o módulo esteja habilitado no
+	 * projeto, que é o módulo que faz esse suporte de pegar as coisas da web e
+	 * passar para o Spring Data. Esse módulo não vem habilitado no projeto por
+	 * padrão. Para habilitarmos isso, assim como quase todos os módulos que vamos
+	 * utilizar do Spring Boot (que não vem habilitado por padrão), temos que ir até
+	 * aquela classe main.
+	 * 
+	 * Então, é necessário anotar a classe SpringbootRestApplication com a
+	 * anotação @EnableSpringDataWebSupport.
+	 * 
+	 * Com essa anotação habilitamos esse suporte, para o Spring pegar da
+	 * requisição, dos parâmetros da url os campos, as informações de paginação e
+	 * ordenação, e repassar isso para o Spring data.
+	 * 
+	 * -- SOBRE O CACHE --
+	 * 
+	 * Em cima do método, temos que colocar a anotação @Cacheable, para falar para o
+	 * Spring guardar o retorno desse método em cache. Só cuidado na hora de fazer o
+	 * import, porque existe a mesma anotação no pacote da JPA. O que vamos utilizar
+	 * no curso é do org.springframework.
+	 * 
+	 * Essa anotação tem um atributo que precisamos preencher. Um chamado value, em
+	 * que temos que passar uma string que vai ser o identificador único desse
+	 * cache. Na nossa aplicação, posso ter vários métodos anotados com @Cacheable,
+	 * e o Spring precisa saber como ele vai diferenciar um do outro. Ele faz isso
+	 * utilizando o id único.
+	 * 
+	 * Esse cache é bem inteligente em gravar as diversas formas de consulta. Por
+	 * exemplo: se fizer uma requisição sem parâmetros e outra com parâmetros,
+	 * teremos dois caches guardados.
+	 * 
+	 * 
+	 * NOTA: é importante utilizar esse recurso de Cache nos métodos menos
+	 * requisitados. Métodos mais requisitados podem comprometer o uso da aplicação,
+	 * já que sempre precisaremos invalidar o cache por causa das alterações. Logo,
+	 * seria interessante, por exemplo, usar chace em uma tabela de País, Estado,
+	 * por exemplo.
+	 * 
+	 * @param cursoNome
+	 * @param pageable
+	 * @return
+	 */
+
+	// http://localhost:8080/topicos/paginaNoParametro?page=0&size=3&sort=id,asc
+	// http://localhost:8080/topicos/paginaNoParametro (por padrão, os parâmetros
+	// serão: page=0, size=10, sorte=id,desc)
+
+	@RequestMapping(value = "/paginaNoParametro", method = RequestMethod.GET)
+	@Cacheable(value = "listaDeTopicosPorPagina")
+	public Page<TopicoResponseDTO> listaComPaginacaoNoParametro(
+			@RequestParam(required = false, value = "cursoNome") String cursoNome,
+			@PageableDefault(sort = "id", direction = Direction.DESC, page = 0, size = 10) Pageable pageable) {
+
+		Page<Topico> topicos = null;
+
+		if (cursoNome == null)
+			topicos = topicoRepository.findAll(pageable);
+		else
+			topicos = topicoRepository.selecionarTopicosPeloNomeCurso(cursoNome, pageable);
 
 		return TopicoResponseDTO.converter(topicos);
 	}
 
 	// Ex.: http://localhost:8080/topicos/titulo?titulo=D%C3%BAvida
-	@RequestMapping("/titulo")
-	public List<TopicoResponseDTO> listaTopicoPorNome(String titulo) {
-		List<Topico> topicos = topicoRepository.findByTitulo(titulo);
-		return TopicoResponseDTO.converter(topicos);
-	}
+	/*
+	 * @RequestMapping("/titulo") public List<TopicoResponseDTO>
+	 * listaTopicoPorNome(String titulo) { List<Topico> topicos =
+	 * topicoRepository.findByTitulo(titulo); return
+	 * TopicoResponseDTO.converter(topicos); }
+	 */
 
-	/**
-	 * A anotação @PostMapping diz que será uma requisição via POST. O mapeamento
-	 * está na classe.
+	/*
+	 * A anotação @CacheEvict serve para apagar todas as entradas de um determindo
+	 * cache. No caso, vamos apagar todos os caches de "listaDeTopicosPorPagina". O
+	 * parâmetro allEntries também se faz necessário, já que teremos vários caches
+	 * de mesmo nome, mas com conteúdos diferentes.
 	 * 
-	 * A anotação @RequestBody diz que iremos receber esse objeto no corpo da
-	 * requisição.
+	 * Essa anotação deve ser utilizados nos métodos: cadastra, edição e remoção.
 	 * 
-	 * Quando estou cadastrando uma informação, postando uma nova informação no
-	 * sistema, o ideal seria devolver outro código da família de sucesso, que é o
-	 * código 201, de quando tenho uma requisição processada com sucesso, mas um
-	 * novo recurso foi criado no servidor.
-	 * 
-	 * O Spring tem uma classe chamada ResponseEntity. Esse generic é o tipo de
-	 * objeto que vou devolver no corpo da resposta, que no caso, seria o tópico.
-	 * 
-	 * O Jackson possui a inteligência de converter um JSON para um objeto de
-	 * TopicoRequestDTO.
-	 * 
-	 * A anotação @Valid servirá para ler as anotações do Bean Validation dentro do
-	 * próprio TopicoRequestDTO
-	 * 
-	 * 
-	 * Segundo o Spring Data a ideia é que todo método que tiver uma operação de
-	 * escrita, ou seja, salvar, alterar e excluir, deveríamos colocar
-	 * o @Transactional.
+	 * Dessa forma, as seleções (GET) sempre irão buscar os dados atualizados.
 	 */
 	@PostMapping
 	@Transactional
+	@CacheEvict(value = "listaDeTopicosPorPagina", allEntries = true)
 	public ResponseEntity<TopicoResponseDTO> cadastrar(@RequestBody @Valid TopicoRequestDTO topicoRequestDTO,
 			UriComponentsBuilder uriBuilder) {
+
 		Topico topico = topicoRequestDTO.converter(cursoRepository);
 		topicoRepository.save(topico);
 
-		/*
-		 * Criando um URI para a resposna.
-		 * 
-		 * Em path() vem o caminho que leva até o recurso.
-		 * 
-		 * buildAndExpand() recebe o ID do novo recurso.
-		 * 
-		 */
 		URI uri = uriBuilder.path("/topicos/{id}").buildAndExpand(topico.getId()).toUri();
 
-		/*
-		 * A classe ResponseEntity tem alguns métodos estáticos, para você criá-lo. Só
-		 * que esse método created() recebe um parâmetro, um tal de URI. Isso acontece
-		 * porque toda vez que devolvo 201 para o cliente, além de devolver o código,
-		 * tenho que devolver mais duas coisas.
-		 * 
-		 * Uma delas é um cabeçalho http, chamado location, com a url desse novo recurso
-		 * que acabou de ser criado. E a segunda coisa é que no corpo da resposta eu
-		 * tenho que devolver uma representação desse recurso que acabei de criar.
-		 * 
-		 * Esse uri que ele recebe é a classe uri do Java mesmo. Mas na hora em que crio
-		 * um objeto uri, tenho que passar o caminho dessa uri. No nosso caso, tenho que
-		 * passar a uri completa. Para não ter que fazer isso, até porque quando eu
-		 * colocar o sistema em produção não vai ser mais localhost:8080, o Spring vai
-		 * nos ajudar novamente.
-		 * 
-		 * Nesse método cadastrar(), estou recebendo o TopicoRequestDTO. Posso colocar
-		 * depois uma classe do Spring chamada UriCompoentsBuilder. É só declarar isso
-		 * como parâmetro que o Spring vai injetar no método.
-		 */
 		return ResponseEntity.created(uri).body(new TopicoResponseDTO(topico));
 	}
 
@@ -194,6 +257,7 @@ public class TopicoController {
 	// Ex.: http://localhost:8080/topicos/4
 	@PutMapping("/{id}")
 	@Transactional
+	@CacheEvict(value = "listaDeTopicosPorPagina", allEntries = true)
 	public ResponseEntity<TopicoResponseDTO> atualizar(@PathVariable("id") Long id,
 			@RequestBody @Valid TopicoAtualizarRequestDTO topicoAtualizarRequestDTO) {
 
@@ -232,8 +296,9 @@ public class TopicoController {
 	// Ex.: http://localhost:8080/topicos/4
 	@DeleteMapping("/{id}")
 	@Transactional
-	public ResponseEntity remover(@PathVariable("id") Long id) {
-		
+	@CacheEvict(value = "listaDeTopicosPorPagina", allEntries = true)
+	public ResponseEntity<?> remover(@PathVariable("id") Long id) {
+
 		Optional<Topico> optional = topicoRepository.findById(id);
 		if (optional.isPresent()) { // Verifica antes se o registro existe para poder ser excluído
 			topicoRepository.deleteById(id);

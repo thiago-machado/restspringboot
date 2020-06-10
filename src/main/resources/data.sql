@@ -7,8 +7,10 @@
  * O Spring possui a inteligência de ler esse arquivo após a criação das tabelas. Nenhuma 
  * configuração adicional precisa ser realizada. O arquivo precisa ter o nome data.sql com as 
  * instruções necessárias.
+ * 
+ * A senha do usuário está usando o BCrypt
  */
-INSERT INTO USUARIO(nome, email, senha) VALUES('Aluno', 'aluno@email.com', '123456');
+INSERT INTO USUARIO(nome, email, senha) VALUES('Aluno', 'aluno@email.com', '$2a$04$qP517gz1KNVEJUTCkUQCY.JzEoXzHFjLAhPQjrg5iP6Z/UmWjvUhq');
 
 INSERT INTO CURSO(nome, categoria) VALUES('Spring Boot', 'Programação');
 INSERT INTO CURSO(nome, categoria) VALUES('HTML 5', 'Front-end');

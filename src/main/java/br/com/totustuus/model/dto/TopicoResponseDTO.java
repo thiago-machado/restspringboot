@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+
 import br.com.totustuus.model.Topico;
 
 /**
@@ -46,10 +48,13 @@ public class TopicoResponseDTO {
 	}
 
 	/*
-	 * Convertendo uma lista de Topico para TopicoDTO
+	 * Convertendo Page<Topico> para um Page<TopicoResponseDTO>
+	 * 
+	 * Um Page possui o método map(), onde podemos iterar os elementos e
+	 * convertê-los para outro tipo.
 	 */
-	public static List<TopicoResponseDTO> converter(List<Topico> topicoLista) {
-		return topicoLista.stream().map((topico) -> new TopicoResponseDTO(topico)).collect(Collectors.toList());
+	public static Page<TopicoResponseDTO> converter(Page<Topico> topicoLista) {
+		return topicoLista.map((topico) -> new TopicoResponseDTO(topico));
 	}
 
 }
