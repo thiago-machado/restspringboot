@@ -1,14 +1,20 @@
 package br.com.totustuus.security;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import br.com.totustuus.repository.UsuarioRepository;
 
 /**
  * Tenho que habilitar a parte do Spring security. Para fazer isso, fazemos na
@@ -37,6 +43,24 @@ public class SecurityConfigurations extends WebSecurityConfigurerAdapter {
 
 	@Autowired
 	private AutenticacaoService autenticacaoService;
+	
+	@Autowired
+	private TokenService tokenService;
+	
+	@Autowired
+	private UsuarioRepository usuarioRepository;
+
+	/**
+	 * Precisa sobrescrever esse método somente para inserir a anotação @Bean.
+	 * 
+	 * Com isso, temos acesso a essa instância de AuthenticationManager na classe 
+	 * AutenticacaoController.
+	 */
+	@Override
+	@Bean
+	protected AuthenticationManager authenticationManager() throws Exception {
+		return super.authenticationManager();
+	}
 
 	/**
 	 * Configurações de autenticação (login).
@@ -83,9 +107,31 @@ public class SecurityConfigurations extends WebSecurityConfigurerAdapter {
 		 * 
 		 * Essas duas classes citadas serão utilizadas para autenticação.
 		 * 
+		 * CSRF é uma abreviação para cross-site request forgery, que é um tipo de
+		 * ataque hacker que acontece em aplicações web. Como vamos fazer autenticação
+		 * via token, automaticamente nossa API está livre desse tipo de ataque. Nós
+		 * vamos desabilitar isso para o Spring security não fazer a validação do token
+		 * do CSRF.
+		 * 
+		 * .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS):
+		 * estamos indicando ao Spring que não usaremos Sessão quando fizermos login,
+		 * porque vamos usar token.
+		 * 
+		 * .and().addFilterBefore(new AutenticacaoViaTokenFilter(), UsernamePasswordAuthenticationFilter.class):
+		 * estamos registrando o filtro AutenticacaoViaTokenFilter antes do filtro UsernamePasswordAuthenticationFilter.
+		 * Ou seja, o nosso filtro que pega o token executará antes do filtro que valida o usuário.
 		 */
-		httpSecurity.authorizeRequests().antMatchers(HttpMethod.GET, "/topicos").permitAll()
-				.antMatchers(HttpMethod.GET, "/topicos/*").permitAll().anyRequest().authenticated().and().formLogin();
+		httpSecurity.authorizeRequests()
+			.antMatchers(HttpMethod.GET, "/topicos").permitAll()
+			.antMatchers(HttpMethod.GET, "/topicos/*").permitAll()
+			.antMatchers(HttpMethod.POST, "/auth").permitAll()
+			.anyRequest().authenticated()
+			// .and().formLogin();
+			.and().csrf().disable()
+			.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+			.and().addFilterBefore(
+					new AutenticacaoViaTokenFilter(tokenService, usuarioRepository), 
+					UsernamePasswordAuthenticationFilter.class);
 	}
 
 	/**
