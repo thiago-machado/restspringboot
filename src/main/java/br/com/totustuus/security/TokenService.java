@@ -90,7 +90,7 @@ public class TokenService {
 			Jwts.parser().setSigningKey(segredo).parseClaimsJws(token);
 			return true;
 		} catch (Exception ex) {
-			ex.printStackTrace();
+			//ex.printStackTrace();
 		}
 		
 		return false;

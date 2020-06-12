@@ -142,10 +142,12 @@ public class SecurityConfigurations extends WebSecurityConfigurerAdapter {
 	 * 
 	 * Normalmente, ignoramos os bloqueios desses recursos.
 	 * 
-	 * Nesse projeto, não vamos utilizar!!!
+	 * Nesse projeto, vamos usar esse método para liberar os arquivos referentes 
+	 * ao Swagger.
 	 */
 	@Override
 	public void configure(WebSecurity web) throws Exception {
-
+		web.ignoring()
+        .antMatchers("/**.html", "/v2/api-docs", "/webjars/**", "/configuration/**", "/swagger-resources/**");
 	}
 }
