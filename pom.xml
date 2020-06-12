@@ -39,6 +39,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
+		
+		<!-- Monitoramento -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
 
 		<!-- Outra dependência que deveríamos colocar é de qual a ferramenta, o 
 			provedor de cache que quero utilizar para aplicação. Com a aplicação rodando 

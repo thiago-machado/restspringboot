@@ -121,9 +121,12 @@ public class SecurityConfigurations extends WebSecurityConfigurerAdapter {
 		 * estamos registrando o filtro AutenticacaoViaTokenFilter antes do filtro UsernamePasswordAuthenticationFilter.
 		 * Ou seja, o nosso filtro que pega o token executará antes do filtro que valida o usuário.
 		 */
+		// /topicos/* = faz uma liberação até o primeiro nível. Ex.: /topicos/3
+		// /topicos/** = faz uma liberação dos subníveis. Ex.: /topicos/detalhes/3
 		httpSecurity.authorizeRequests()
 			.antMatchers(HttpMethod.GET, "/topicos").permitAll()
 			.antMatchers(HttpMethod.GET, "/topicos/*").permitAll()
+			.antMatchers(HttpMethod.GET, "/actuator/**").permitAll() // Em produção, não inserir essa linha referente ao monitoramento
 			.antMatchers(HttpMethod.POST, "/auth").permitAll()
 			.anyRequest().authenticated()
 			// .and().formLogin();
